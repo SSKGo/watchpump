@@ -2,16 +2,22 @@ import tkinter as tk
 from abc import abstractclassmethod
 
 
-class ConfigGUI(tk.Toplevel):
+class AWSIAMConfigEditorGUI(tk.Toplevel):
     def __init__(self, master=None, config=None):
         super().__init__(master)
-        # Menubar
+        # initialize
+        self.id = None
         self.construct_config_aws()
         self.set_entries(config)
         self.toggle_entry_state()
 
     def construct_config_aws(self):
-        self.use_profile_var = tk.IntVar()
+        setting_name_label = tk.Label(self, text="Setting Name:")
+        setting_name_label.pack()
+        self.setting_name_entry = tk.Entry(self)
+        self.setting_name_entry.pack()
+
+        self.use_profile_var = tk.IntVar(value=1)
         self.use_profile_check = tk.Checkbutton(
             self,
             text="Use AWS Profile",
@@ -19,6 +25,11 @@ class ConfigGUI(tk.Toplevel):
             command=self.toggle_entry_state,
         )
         self.use_profile_check.pack()
+
+        profile_label = tk.Label(self, text="AWS Profile (optional):")
+        profile_label.pack()
+        self.profile_entry = tk.Entry(self)
+        self.profile_entry.pack()
 
         access_key_label = tk.Label(self, text="AWS Access Key:")
         access_key_label.pack()
@@ -30,39 +41,28 @@ class ConfigGUI(tk.Toplevel):
         self.secret_key_entry = tk.Entry(self)
         self.secret_key_entry.pack()
 
-        profile_label = tk.Label(self, text="AWS Profile (optional):")
-        profile_label.pack()
-        self.profile_entry = tk.Entry(self)
-        self.profile_entry.pack()
-
         save_button = tk.Button(
             self,
             text="Save Config",
-            command=self.save_credentials(),
+            command=self.click_save,
         )
         save_button.pack()
 
     def set_entries(self, config):
         if config:
+            self.id = config["id"]
+            self.setting_name_entry.set(config["name"])
             self.use_profile_var.set(config["use_profile"])
             self.access_key_entry.insert(0, config["aws_access_key"])
             self.secret_key_entry.insert(0, config["aws_secret_key"])
             self.profile_entry.insert(0, config["aws_profile"])
 
+    def click_save(self):
+        self.save_credentials()
+        self.destroy()
+
     @abstractclassmethod
     def save_credentials(self):
-        # if self.use_profile:
-        #     new_session_settings = {
-        #         "aws_profile": self.profile_entry.get(),
-        #         "use_profile": self.use_profile,
-        #     }
-        # else:
-        #     new_session_settings = {
-        #         "aws_access_key": self.access_key_entry.get(),
-        #         "aws_secret_key": self.secret_key_entry.get(),
-        #         "use_profile": self.use_profile,
-        #     }
-        # pass
         pass
 
     def toggle_entry_state(self):
@@ -79,5 +79,5 @@ class ConfigGUI(tk.Toplevel):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = ConfigGUI(master=root)
+    app = AWSIAMConfigEditorGUI(master=root)
     app.mainloop()

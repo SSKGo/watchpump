@@ -8,7 +8,8 @@ from tkinter import messagebox
 import boto3
 import yaml
 from botocore.exceptions import NoCredentialsError
-from modules.gui.config_window import ConfigGUI
+from modules.config import AWSIAMConfig, SessionConfig
+from modules.gui.config_window import AWSIAMConfigEditorGUI
 from modules.gui.top_window import ApplicationGUI
 from modules.worker import ChangeCheckWorker, FileHandler, S3UploadWorker
 from watchdog.observers import Observer
@@ -35,11 +36,6 @@ log_stream_handler.setLevel(logging.INFO)
 log_stream_handler.setFormatter(log_file_formatter)
 logger.addHandler(log_stream_handler)
 
-# TODO:
-# 1. Detect Move
-# 3. Config: to open a file
-# 4. Config: to save a file
-
 
 class Application(ApplicationGUI):
     def __init__(self, master=None):
@@ -49,14 +45,11 @@ class Application(ApplicationGUI):
         # Queue
         self.change_check_store = {}
         self.s3_upload_queue = Queue()
-
+        # Setting files
+        self.aws_iam_config = AWSIAMConfig()
+        self.session_config = SessionConfig()
         # Initialize entry
         self._initialize_gui()
-
-        # Credentials file
-        self.credeintials_path = ".aws_iam.yaml"
-        if not os.path.exists(self.credeintials_path):
-            self._initialize_credentials_file()
 
     def menu_file_new(self, *args):
         pass
@@ -70,7 +63,7 @@ class Application(ApplicationGUI):
     def menu_file_save_as(self, *args):
         self._dump_config("")
 
-    def start_monitoring(self):
+    def click_start_monitoring(self):
         try:
             session = self._create_boto3_session()
             s3 = session.client("s3")
@@ -136,7 +129,7 @@ class Application(ApplicationGUI):
             f"Start monitoring. Path: {self.path_entry.get()}, Bucket: {self.bucket_entry.get()}, Prefix: {self.prefix_entry.get()}."  # noqa: E501
         )
 
-    def stop_monitoring(self):
+    def click_stop_monitoring(self):
         if self.observer:
             self.observer.stop()
             self.observer.join()
@@ -156,26 +149,24 @@ class Application(ApplicationGUI):
             self.prefix_entry.config(state=tk.NORMAL)
             logger.info("Stop monitoring")
 
-    def edit_credentials(self):
-        config_window = ConfigGUI(self.master)
+    def click_edit_credentials(self):
+        original_name = self.aws_iam_combobox.get()
+        original_id = AWSIAMConfig.name2id(original_name)
+        config_window = AWSIAMConfigEditor(master=self.master, original_id=original_id)
         config_window.transient(self.master)
         config_window.grab_set()
         config_window.focus_set()
         self.wait_window(config_window)
 
-    def add_credentials(self):
-        config_window = ConfigGUI(self.master)
+    def click_add_credentials(self):
+        config_window = AWSIAMConfigEditor(master=self.master, original_id=None)
         config_window.transient(self.master)
         config_window.grab_set()
         config_window.focus_set()
         self.wait_window(config_window)
-
-    def _initialize_credentials_file(self):
-        with open(self.credeintials_path, "w") as f:
-            yaml.dump({}, f)
 
     def _create_boto3_session(self):
-        if self.session_combobox.get() == "default":
+        if self.aws_iam_combobox.get() == "default":
             session = boto3.Session()
         # elif config["use_profile"]:
         #     session = boto3.Session(profile_name=config["aws_profile"])
@@ -190,7 +181,11 @@ class Application(ApplicationGUI):
         self.path_entry.insert(0, os.path.abspath("."))
         self.bucket_entry.insert(0, "")
         self.prefix_entry.insert(0, "")
-        self.session_combobox.set("default")
+        aws_iam_list = ["default"]
+        for value in self.aws_iam_config.config.values():
+            aws_iam_list.append(value["name"])
+        self.aws_iam_combobox.config(values=aws_iam_list)
+        self.aws_iam_combobox.set("default")
         self.bottom_status_label.config(text="Stop Monitoring.")
 
     def _load_config(self, path):
@@ -199,30 +194,45 @@ class Application(ApplicationGUI):
         self.path_entry.insert(0, config["path"])
         self.bucket_entry.insert(0, config["bucket"])
         self.prefix_entry.insert(0, config["prefix"])
-        self.session_combobox.set(config["session"])
+        self.aws_iam_combobox.set(config["aws_iam"])
 
     def _dump_config(self, path):
         config = {
             "path": self.path_entry.get(),
             "bucket": self.bucket_entry.get(),
             "prefix": self.prefix_entry.get(),
-            "session": self.session_combobox.get(),
+            "aws_iam": self.aws_iam_combobox.get(),
         }
         with open(path, "w") as f:
             yaml.dump(config, f)
 
-    # def save_config(
-    #     self,
-    #     session_name,
-    #     new_session_settings,
-    #     window,
-    # ):
-    #     with open(self.credeintials_path, "r") as f:
-    #         credentials = yaml.safe_load(f)
-    #     credentials[session_name] = new_session_settings
-    #     with open(self.credeintials_path, "w") as f:
-    #         yaml.dump(new_session_settings, f)
-    #     window.destroy()
+
+class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
+    def __init__(self, master=None, original_id=None):
+        # Setting files
+        self.aws_iam_config = AWSIAMConfig()
+        self.original_id = original_id if original_id else None
+        if self.original_id:
+            config = self.aws_iam_config[self.original_id]
+        else:
+            config = None
+        super().__init__(master=master, config=config)
+
+    def save_credentials(self):
+        if self.use_profile:
+            new_aws_iam_settings = {
+                "name": self.setting_name_entry.get(),
+                "aws_profile": self.profile_entry.get(),
+                "use_profile": self.use_profile,
+            }
+        else:
+            new_aws_iam_settings = {
+                "name": self.setting_name_entry.get(),
+                "aws_access_key": self.access_key_entry.get(),
+                "aws_secret_key": self.secret_key_entry.get(),
+                "use_profile": self.use_profile,
+            }
+        self.aws_iam_config.update(new_aws_iam_settings, original_id=self.original_id)
 
 
 if __name__ == "__main__":
