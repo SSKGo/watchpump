@@ -35,12 +35,18 @@ class ConfigSingletone:
             yaml.dump(cls.config, f)
 
     @classmethod
-    def update(cls, data, original_id=None):
+    def update(cls, data, original_id=None) -> str:
         data["name"] = data["name"].strip()
         new_id = cls.name2id(data["name"])
         if original_id:
             del cls.config[original_id]
         cls.config[new_id] = data
+        cls.save_file()
+        return new_id
+
+    @classmethod
+    def delete_iam(cls, delete_id) -> str:
+        del cls.config[delete_id]
         cls.save_file()
 
     @staticmethod

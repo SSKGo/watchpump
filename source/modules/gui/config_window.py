@@ -6,7 +6,6 @@ class AWSIAMConfigEditorGUI(tk.Toplevel):
     def __init__(self, master=None, config=None):
         super().__init__(master)
         # initialize
-        self.id = None
         self.construct_config_aws()
         self.set_entries(config)
         self.toggle_entry_state()
@@ -26,7 +25,7 @@ class AWSIAMConfigEditorGUI(tk.Toplevel):
         )
         self.use_profile_check.pack()
 
-        profile_label = tk.Label(self, text="AWS Profile (optional):")
+        profile_label = tk.Label(self, text="AWS Profile:")
         profile_label.pack()
         self.profile_entry = tk.Entry(self)
         self.profile_entry.pack()
@@ -50,8 +49,7 @@ class AWSIAMConfigEditorGUI(tk.Toplevel):
 
     def set_entries(self, config):
         if config:
-            self.id = config["id"]
-            self.setting_name_entry.set(config["name"])
+            self.setting_name_entry.insert(0, config["name"])
             self.use_profile_var.set(config["use_profile"])
             self.access_key_entry.insert(0, config["aws_access_key"])
             self.secret_key_entry.insert(0, config["aws_secret_key"])

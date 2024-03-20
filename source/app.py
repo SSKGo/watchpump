@@ -1,6 +1,7 @@
 import logging
 import os
 import tkinter as tk
+from collections.abc import Callable
 from logging.handlers import TimedRotatingFileHandler
 from queue import Queue
 from tkinter import messagebox
@@ -151,19 +152,33 @@ class Application(ApplicationGUI):
 
     def click_edit_credentials(self):
         original_name = self.aws_iam_combobox.get()
-        original_id = AWSIAMConfig.name2id(original_name)
-        config_window = AWSIAMConfigEditor(master=self.master, original_id=original_id)
+        original_id = self.aws_iam_config.name2id(original_name)
+        config_window = AWSIAMConfigEditor(
+            master=self.master,
+            original_id=original_id,
+            after_save=self._after_aws_iam_save,
+        )
         config_window.transient(self.master)
         config_window.grab_set()
         config_window.focus_set()
         self.wait_window(config_window)
 
     def click_add_credentials(self):
-        config_window = AWSIAMConfigEditor(master=self.master, original_id=None)
+        config_window = AWSIAMConfigEditor(
+            master=self.master,
+            original_id=None,
+            after_save=self._after_aws_iam_save,
+        )
         config_window.transient(self.master)
         config_window.grab_set()
         config_window.focus_set()
         self.wait_window(config_window)
+
+    def click_delete_credentials(self):
+        name = self.aws_iam_combobox.get()
+        delete_id = self.aws_iam_config.name2id(name)
+        self.aws_iam_config.delete_iam(delete_id)
+        self._after_aws_iam_delete()
 
     def _create_boto3_session(self):
         if self.aws_iam_combobox.get() == "default":
@@ -181,12 +196,15 @@ class Application(ApplicationGUI):
         self.path_entry.insert(0, os.path.abspath("."))
         self.bucket_entry.insert(0, "")
         self.prefix_entry.insert(0, "")
+        self._update_aws_iam_combobox_values()
+        self.aws_iam_combobox.set("default")
+        self.bottom_status_label.config(text="Stop Monitoring.")
+
+    def _update_aws_iam_combobox_values(self):
         aws_iam_list = ["default"]
         for value in self.aws_iam_config.config.values():
             aws_iam_list.append(value["name"])
         self.aws_iam_combobox.config(values=aws_iam_list)
-        self.aws_iam_combobox.set("default")
-        self.bottom_status_label.config(text="Stop Monitoring.")
 
     def _load_config(self, path):
         with open(path, "r") as f:
@@ -206,33 +224,44 @@ class Application(ApplicationGUI):
         with open(path, "w") as f:
             yaml.dump(config, f)
 
+    def _after_aws_iam_save(self, new_id):
+        name_saved = self.aws_iam_config.config[new_id]["name"]
+        self.aws_iam_combobox.set(name_saved)
+        self._update_aws_iam_combobox_values()
+        self.change_aws_iam_buttons_state()
+
+    def _after_aws_iam_delete(self):
+        self.aws_iam_combobox.set("default")
+        self._update_aws_iam_combobox_values()
+        self.change_aws_iam_buttons_state()
+
 
 class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
-    def __init__(self, master=None, original_id=None):
+    def __init__(
+        self, master=None, original_id=None, after_save: Callable[[str], None] = None
+    ):
         # Setting files
         self.aws_iam_config = AWSIAMConfig()
         self.original_id = original_id if original_id else None
         if self.original_id:
-            config = self.aws_iam_config[self.original_id]
+            config = self.aws_iam_config.config[self.original_id]
         else:
             config = None
         super().__init__(master=master, config=config)
+        self.after_save = after_save
 
     def save_credentials(self):
-        if self.use_profile:
-            new_aws_iam_settings = {
-                "name": self.setting_name_entry.get(),
-                "aws_profile": self.profile_entry.get(),
-                "use_profile": self.use_profile,
-            }
-        else:
-            new_aws_iam_settings = {
-                "name": self.setting_name_entry.get(),
-                "aws_access_key": self.access_key_entry.get(),
-                "aws_secret_key": self.secret_key_entry.get(),
-                "use_profile": self.use_profile,
-            }
-        self.aws_iam_config.update(new_aws_iam_settings, original_id=self.original_id)
+        new_aws_iam_settings = {
+            "name": self.setting_name_entry.get(),
+            "use_profile": self.use_profile,
+            "aws_profile": self.profile_entry.get(),
+            "aws_access_key": self.access_key_entry.get(),
+            "aws_secret_key": self.secret_key_entry.get(),
+        }
+        new_id = self.aws_iam_config.update(
+            new_aws_iam_settings, original_id=self.original_id
+        )
+        self.after_save(new_id)
 
 
 if __name__ == "__main__":
