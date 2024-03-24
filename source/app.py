@@ -11,8 +11,10 @@ import yaml
 from botocore.exceptions import NoCredentialsError
 from modules.config import AWSIAMConfig, SessionConfig
 from modules.gui.config_window import AWSIAMConfigEditorGUI
+from modules.gui.license_window import LicenseGUI
 from modules.gui.top_window import ApplicationGUI
 from modules.worker import ChangeCheckWorker, FileHandler, S3UploadWorker
+from oss_license_descriptions import oss_license_descriptions
 from watchdog.observers import Observer
 
 DIR_LOG = "./logs"
@@ -63,6 +65,15 @@ class Application(ApplicationGUI):
 
     def menu_file_save_as(self, *args):
         self._dump_config("")
+
+    def menu_help_oss_licenses(self):
+        license_window = LicenseGUI(
+            master=self.master, description=oss_license_descriptions
+        )
+        license_window.transient(self.master)
+        license_window.grab_set()
+        license_window.focus_set()
+        self.wait_window(license_window)
 
     def click_start_monitoring(self):
         try:

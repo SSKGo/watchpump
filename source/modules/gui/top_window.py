@@ -58,8 +58,15 @@ class ApplicationGUI(ttk.Frame):
         )
         menu_file.add_separator()
         menu_file.add_command(label="Exit", command=self.close_app)
+        # Help menu
+        menu_help = tk.Menu(menubar, tearoff=False)
+        menu_help.add_command(
+            label="License Information",
+            command=self.menu_help_oss_licenses,
+        )
         # Put menus in menubar
         menubar.add_cascade(label="File", menu=menu_file)
+        menubar.add_cascade(label="Help", menu=menu_help)
         self.master.config(menu=menubar)
 
     def _construct_bottom_status(self):
@@ -212,6 +219,10 @@ class ApplicationGUI(ttk.Frame):
 
     @abstractclassmethod
     def menu_file_save_as(self, *args):
+        pass
+
+    @abstractclassmethod
+    def menu_help_oss_licenses(self, *args):
         pass
 
     @abstractclassmethod
