@@ -1,20 +1,26 @@
+import os
 import tkinter as tk
-from abc import abstractclassmethod
+from abc import abstractmethod
 from tkinter import filedialog, messagebox, ttk
 
 
 class ApplicationGUI(ttk.Frame):
+    session_new = "New*"
+    aws_iam_default = "default"
+
     def __init__(self, master=None):
         super().__init__(master)
         self.master.geometry("500x400")
         self.master.title("Watchdog for S3 Upload")
         self.master.resizable(width=False, height=False)
 
+        self.session_edit_mode = False
+
         # Shortcut
         self.bind_all("<Control-n>", self.menu_file_new)
         self.bind_all("<Control-o>", self.menu_file_open)
-        self.bind_all("<Control-s>", self.menu_file_save)
-        self.bind_all("<Control-Shift-Key-S>", self.menu_file_save_as)
+        self.bind_all("<Control-s>", self.click_menu_file_save)
+        self.bind_all("<Control-Shift-Key-S>", self.click_menu_file_save_as)
 
         # Menubar
         self._construct_menubar()
@@ -32,29 +38,29 @@ class ApplicationGUI(ttk.Frame):
         menubar = tk.Menu(self)
         # File menu
         menu_file = tk.Menu(menubar, tearoff=False)
-        menu_file.add_command(
-            label="New",
-            command=self.menu_file_new,
-            accelerator="Ctrl+N",
-            state=tk.DISABLED,
-        )
-        menu_file.add_command(
-            label="Open",
-            command=self.menu_file_open,
-            accelerator="Ctrl+O",
-            state=tk.DISABLED,
-        )
+        # menu_file.add_command(
+        #     label="New",
+        #     command=self.menu_file_new,
+        #     accelerator="Ctrl+N",
+        #     state=tk.DISABLED,
+        # )
+        # menu_file.add_command(
+        #     label="Open",
+        #     command=self.menu_file_open,
+        #     accelerator="Ctrl+O",
+        #     state=tk.DISABLED,
+        # )
         menu_file.add_command(
             label="Save",
-            command=self.menu_file_save,
+            command=self.click_menu_file_save,
             accelerator="Ctrl+S",
-            state=tk.DISABLED,
+            state=tk.NORMAL,
         )
         menu_file.add_command(
             label="Save As...",
-            command=self.menu_file_save_as,
+            command=self.click_menu_file_save_as,
             accelerator="Ctrl+Shift+S",
-            state=tk.DISABLED,
+            state=tk.NORMAL,
         )
         menu_file.add_separator()
         menu_file.add_command(label="Exit", command=self.close_app)
@@ -77,9 +83,18 @@ class ApplicationGUI(ttk.Frame):
 
     def _construct_right_frame(self):
         frame_right = tk.Frame(
-            self.master, padx=5, pady=5, relief=tk.SUNKEN, bd=2, width=100
+            self.master, padx=5, pady=5, relief=tk.SUNKEN, bd=2, width=120
         )
         frame_right.propagate(False)
+        frame_status = ttk.LabelFrame(frame_right, text="Status", width=280)
+        self.status_label = ttk.Label(
+            frame_status,
+            text="Not Monitoring",
+            foreground="red",
+        )
+        self.status_label.pack(padx=5, pady=5)
+        frame_status.pack(padx=5, pady=5, anchor=tk.W)
+
         self.start_button = ttk.Button(
             frame_right,
             text="Start Monitoring",
@@ -97,15 +112,36 @@ class ApplicationGUI(ttk.Frame):
 
     def _construct_left_frame(self):
         frame_left = tk.Frame(self.master, relief=tk.SUNKEN, bd=2)
-        frame_status = ttk.LabelFrame(frame_left, text="Status", width=280)
-        self.status_label = ttk.Label(
-            frame_status,
-            text="Not Monitoring",
-            font=("Helvetica", 16),
-            foreground="red",
+
+        # Session Settings
+        frame_session = ttk.LabelFrame(frame_left, text="Session Settings", width=280)
+        self.session_list = [ApplicationGUI.session_new]
+        # Combobox
+        self.session_combobox = ttk.Combobox(
+            frame_session,
+            values=self.session_list,
+            state="readonly",
+            exportselection=0,
         )
-        self.status_label.pack(padx=5, pady=5)
-        frame_status.pack(padx=5, pady=5, anchor=tk.W)
+        self.session_combobox.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        self.session_combobox.set(self.session_list[0])
+        self.session_edit_button = ttk.Button(
+            frame_session,
+            text="Edit",
+            command=self.click_edit_session,
+            state=tk.DISABLED,
+        )
+        self.session_combobox.bind("<<ComboboxSelected>>", self.select_session_combobox)
+        # Buttons
+        self.session_edit_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        self.session_delete_button = ttk.Button(
+            frame_session,
+            text="Delete",
+            command=self._click_delete_session,
+            state=tk.DISABLED,
+        )
+        self.session_delete_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        frame_session.pack(padx=5, pady=5, fill=tk.X)
 
         # Folder
         frame_folder = ttk.LabelFrame(
@@ -135,7 +171,7 @@ class ApplicationGUI(ttk.Frame):
 
         # AWS IAM Settings
         frame_aws_iam = ttk.LabelFrame(frame_left, text="AWS IAM Settings", width=280)
-        self.aws_iam_list = ["default"]
+        self.aws_iam_list = [ApplicationGUI.aws_iam_default]
         # Combobox
         self.aws_iam_combobox = ttk.Combobox(
             frame_aws_iam, values=self.aws_iam_list, state="readonly", exportselection=0
@@ -187,6 +223,12 @@ class ApplicationGUI(ttk.Frame):
         ):
             self.click_delete_credentials()
 
+    def _click_delete_session(self):
+        if messagebox.askokcancel(
+            "Delete", f"Are you sure you want to delete {self.session_combobox.get()}?"
+        ):
+            self.click_delete_session()
+
     def _click_add_credentials(self):
         self.click_add_credentials()
 
@@ -197,52 +239,114 @@ class ApplicationGUI(ttk.Frame):
     def select_aws_iam_combobox(self, _):
         self.change_aws_iam_buttons_state()
 
+    def select_session_combobox(self, _):
+        session = self.session_combobox.get()
+        if session == ApplicationGUI.session_new:
+            self.initialize_session_input()
+        else:
+            self.load_session_config()
+        self.change_session_buttons_state()
+
     def change_aws_iam_buttons_state(self):
-        if self.aws_iam_combobox.get() == "default":
+        if self.aws_iam_combobox.get() == ApplicationGUI.aws_iam_default:
             self.aws_iam_edit_button.config(state=tk.DISABLED)
             self.aws_iam_delete_button.config(state=tk.DISABLED)
         else:
             self.aws_iam_edit_button.config(state=tk.NORMAL)
             self.aws_iam_delete_button.config(state=tk.NORMAL)
 
-    @abstractclassmethod
+    def change_session_buttons_state(self):
+        if self.session_combobox.get() == ApplicationGUI.session_new:
+            self.session_edit_button.config(state=tk.DISABLED)
+            self.session_delete_button.config(state=tk.DISABLED)
+            self.enable_session_edit()
+        else:
+            self.session_edit_button.config(state=tk.NORMAL)
+            self.session_delete_button.config(state=tk.NORMAL)
+            self.disable_session_edit()
+
+    def initialize_session_input(self):
+        self.update_session_input(
+            os.path.abspath("."), "", "", ApplicationGUI.aws_iam_default
+        )
+
+    def update_session_input(
+        self, path: str, s3_bucket: str, s3_prefix: str, aws_iam: str
+    ):
+        self.path_entry.delete(first=0, last=tk.END)
+        self.bucket_entry.delete(first=0, last=tk.END)
+        self.prefix_entry.delete(first=0, last=tk.END)
+        self.path_entry.insert(0, path)
+        self.bucket_entry.insert(0, s3_bucket)
+        self.prefix_entry.insert(0, s3_prefix)
+        self.aws_iam_combobox.set(aws_iam)
+
+    def disable_session_edit(self):
+        self.path_entry.config(state=tk.DISABLED)
+        self.bucket_entry.config(state=tk.DISABLED)
+        self.prefix_entry.config(state=tk.DISABLED)
+        self.aws_iam_combobox.config(state=tk.DISABLED)
+
+    def enable_session_edit(self):
+        self.path_entry.config(state=tk.NORMAL)
+        self.bucket_entry.config(state=tk.NORMAL)
+        self.prefix_entry.config(state=tk.NORMAL)
+        self.aws_iam_combobox.config(state=tk.NORMAL)
+
+    @abstractmethod
+    def load_session_config(self):
+        pass
+
+    @abstractmethod
     def menu_file_new(self, *args):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def menu_file_open(self, *args):
         pass
 
-    @abstractclassmethod
-    def menu_file_save(self, *args):
+    @abstractmethod
+    def click_menu_file_save(self, *args):
         pass
 
-    @abstractclassmethod
-    def menu_file_save_as(self, *args):
+    @abstractmethod
+    def click_menu_file_save_as(self, *args):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def menu_help_oss_licenses(self, *args):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def click_start_monitoring(self):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def click_stop_monitoring(self):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def click_edit_credentials(self):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def click_delete_credentials(self):
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def click_add_credentials(self):
+        pass
+
+    @abstractmethod
+    def click_edit_session(self):
+        pass
+
+    @abstractmethod
+    def click_delete_session(self):
+        pass
+
+    @abstractmethod
+    def click_add_session(self):
         pass
 
     @staticmethod

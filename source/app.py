@@ -7,11 +7,11 @@ from queue import Queue
 from tkinter import messagebox
 
 import boto3
-import yaml
 from botocore.exceptions import NoCredentialsError
 from modules.config import AWSIAMConfig, SessionConfig
 from modules.gui.config_window import AWSIAMConfigEditorGUI
 from modules.gui.license_window import LicenseGUI
+from modules.gui.name_window import NameEditorGUI
 from modules.gui.top_window import ApplicationGUI
 from modules.worker import ChangeCheckWorker, FileHandler, S3UploadWorker
 from oss_license_descriptions import oss_license_descriptions
@@ -58,13 +58,31 @@ class Application(ApplicationGUI):
         pass
 
     def menu_file_open(self, *args):
-        self._load_config("")
+        pass
 
-    def menu_file_save(self, *args):
-        self._dump_config("")
+    def click_menu_file_save(self, *args):
+        self.save_session()
 
-    def menu_file_save_as(self, *args):
-        self._dump_config("")
+    def click_menu_file_save_as(self, *args):
+        session_name = self.session_combobox.get()
+        if session_name == Application.session_new:
+            session_name = ""
+        new_session_data = {
+            "name": session_name,
+            "path": self.path_entry.get(),
+            "bucket": self.bucket_entry.get(),
+            "prefix": self.prefix_entry.get(),
+            "aws_iam": self.aws_iam_combobox.get(),
+        }
+        window = NameEditor(
+            master=self.master,
+            new_session_data=new_session_data,
+            after_save=self._after_session_save,
+        )
+        window.transient(self.master)
+        window.grab_set()
+        window.focus_set()
+        self.wait_window(window)
 
     def menu_help_oss_licenses(self):
         license_window = LicenseGUI(
@@ -191,8 +209,17 @@ class Application(ApplicationGUI):
         self.aws_iam_config.delete_iam(delete_id)
         self._after_aws_iam_delete()
 
+    def click_edit_session(self):
+        pass
+
+    def click_delete_session(self):
+        name = self.session_combobox.get()
+        delete_id = self.session_config.name2id(name)
+        self.session_config.delete_iam(delete_id)
+        self._after_session_delete()
+
     def _create_boto3_session(self):
-        if self.aws_iam_combobox.get() == "default":
+        if self.aws_iam_combobox.get() == Application.aws_iam_default:
             session = boto3.Session()
         # elif config["use_profile"]:
         #     session = boto3.Session(profile_name=config["aws_profile"])
@@ -204,36 +231,45 @@ class Application(ApplicationGUI):
         return session
 
     def _initialize_gui(self):
-        self.path_entry.insert(0, os.path.abspath("."))
-        self.bucket_entry.insert(0, "")
-        self.prefix_entry.insert(0, "")
         self._update_aws_iam_combobox_values()
-        self.aws_iam_combobox.set("default")
+        self._update_session_combobox_values()
+        self.initialize_session_input()
         self.bottom_status_label.config(text="Stop Monitoring.")
 
+    def _update_session_combobox_values(self):
+        combobox_value_list = [Application.session_new]
+        for value in self.session_config.config.values():
+            combobox_value_list.append(value["name"])
+        self.session_combobox.config(values=combobox_value_list)
+
     def _update_aws_iam_combobox_values(self):
-        aws_iam_list = ["default"]
+        aws_iam_list = [Application.aws_iam_default]
         for value in self.aws_iam_config.config.values():
             aws_iam_list.append(value["name"])
         self.aws_iam_combobox.config(values=aws_iam_list)
 
-    def _load_config(self, path):
-        with open(path, "r") as f:
-            config = yaml.safe_load(f)
-        self.path_entry.insert(0, config["path"])
-        self.bucket_entry.insert(0, config["bucket"])
-        self.prefix_entry.insert(0, config["prefix"])
-        self.aws_iam_combobox.set(config["aws_iam"])
+    def load_session_config(self):
+        session_name = self.session_combobox.get()
+        session_id = SessionConfig.name2id(session_name)
+        config = self.session_config.config[session_id]
+        self.update_session_input(
+            config["path"], config["bucket"], config["prefix"], config["aws_iam"]
+        )
 
-    def _dump_config(self, path):
-        config = {
-            "path": self.path_entry.get(),
-            "bucket": self.bucket_entry.get(),
-            "prefix": self.prefix_entry.get(),
-            "aws_iam": self.aws_iam_combobox.get(),
-        }
-        with open(path, "w") as f:
-            yaml.dump(config, f)
+    def save_session(self):
+        session_name = self.session_combobox.get()
+        if session_name == Application.session_new:
+            self.click_menu_file_save_as()
+        else:
+            session_id = SessionConfig.name2id(session_name)
+            data = {
+                "name": session_name,
+                "path": self.path_entry.get(),
+                "bucket": self.bucket_entry.get(),
+                "prefix": self.prefix_entry.get(),
+                "aws_iam": self.aws_iam_combobox.get(),
+            }
+            self.session_config.update(data, original_id=session_id)
 
     def _after_aws_iam_save(self, new_id):
         name_saved = self.aws_iam_config.config[new_id]["name"]
@@ -242,9 +278,23 @@ class Application(ApplicationGUI):
         self.change_aws_iam_buttons_state()
 
     def _after_aws_iam_delete(self):
-        self.aws_iam_combobox.set("default")
+        self.aws_iam_combobox.set(Application.aws_iam_default)
         self._update_aws_iam_combobox_values()
         self.change_aws_iam_buttons_state()
+
+    def _after_session_save(self, new_id):
+        config = self.session_config.config[new_id]
+        self.session_combobox.set(config["name"])
+        self.update_session_input(
+            config["path"], config["bucket"], config["prefix"], config["aws_iam"]
+        )
+        self._update_session_combobox_values()
+        self.change_session_buttons_state()
+
+    def _after_session_delete(self):
+        self.session_combobox.set(Application.session_new)
+        self._update_session_combobox_values()
+        self.change_session_buttons_state()
 
 
 class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
@@ -272,6 +322,25 @@ class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
         new_id = self.aws_iam_config.update(
             new_aws_iam_settings, original_id=self.original_id
         )
+        self.after_save(new_id)
+
+
+class NameEditor(NameEditorGUI):
+    def __init__(
+        self,
+        master=None,
+        new_session_data=None,
+        after_save: Callable[[str], None] = None,
+    ):
+        # Setting files
+        self.session_config = SessionConfig()
+        self.new_session_data = new_session_data
+        super().__init__(master=master, config=new_session_data)
+        self.after_save = after_save
+
+    def save(self):
+        self.new_session_data["name"] = self.name_entry.get()
+        new_id = self.session_config.update(self.new_session_data)
         self.after_save(new_id)
 
 
