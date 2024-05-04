@@ -45,7 +45,7 @@ class ConfigSingletone:
         return new_id
 
     @classmethod
-    def delete_iam(cls, delete_id) -> str:
+    def delete(cls, delete_id) -> str:
         del cls.config[delete_id]
         cls.save_file()
 

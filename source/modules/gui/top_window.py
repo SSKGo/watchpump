@@ -19,7 +19,7 @@ class ApplicationGUI(ttk.Frame):
         # Shortcut
         self.bind_all("<Control-n>", self.menu_file_new)
         self.bind_all("<Control-o>", self.menu_file_open)
-        self.bind_all("<Control-s>", self.click_menu_file_save)
+        # self.bind_all("<Control-s>", self.click_menu_file_save)
         self.bind_all("<Control-Shift-Key-S>", self.click_menu_file_save_as)
 
         # Menubar
@@ -50,12 +50,12 @@ class ApplicationGUI(ttk.Frame):
         #     accelerator="Ctrl+O",
         #     state=tk.DISABLED,
         # )
-        menu_file.add_command(
-            label="Save",
-            command=self.click_menu_file_save,
-            accelerator="Ctrl+S",
-            state=tk.NORMAL,
-        )
+        # menu_file.add_command(
+        #     label="Save",
+        #     command=self.click_menu_file_save,
+        #     accelerator="Ctrl+S",
+        #     state=tk.NORMAL,
+        # )
         menu_file.add_command(
             label="Save As...",
             command=self.click_menu_file_save_as,
@@ -125,6 +125,7 @@ class ApplicationGUI(ttk.Frame):
         )
         self.session_combobox.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
         self.session_combobox.set(self.session_list[0])
+        # Buttons
         self.session_edit_button = ttk.Button(
             frame_session,
             text="Edit",
@@ -132,7 +133,6 @@ class ApplicationGUI(ttk.Frame):
             state=tk.DISABLED,
         )
         self.session_combobox.bind("<<ComboboxSelected>>", self.select_session_combobox)
-        # Buttons
         self.session_edit_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
         self.session_delete_button = ttk.Button(
             frame_session,
@@ -141,6 +141,19 @@ class ApplicationGUI(ttk.Frame):
             state=tk.DISABLED,
         )
         self.session_delete_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        # For Edit mode
+        self.session_save_button = ttk.Button(
+            frame_session,
+            text="Save",
+            command=self._click_save_session,
+            state=tk.NORMAL,
+        )
+        self.session_cancel_button = ttk.Button(
+            frame_session,
+            text="Cancel",
+            command=self._click_cancel_session,
+            state=tk.NORMAL,
+        )
         frame_session.pack(padx=5, pady=5, fill=tk.X)
 
         # Folder
@@ -149,12 +162,12 @@ class ApplicationGUI(ttk.Frame):
         )
         self.path_entry = tk.Entry(frame_folder, width=50)
         self.path_entry.pack(padx=5, anchor=tk.W)
-        select_button = tk.Button(
+        self.select_button = tk.Button(
             frame_folder,
             text="Select Folder",
             command=lambda: ApplicationGUI.select_folder(self.path_entry),
         )
-        select_button.pack(padx=5, pady=5, anchor=tk.W)
+        self.select_button.pack(padx=5, pady=5, anchor=tk.W)
         frame_folder.pack(padx=5, pady=5, fill=tk.X)
 
         # S3 Bucket Name
@@ -229,6 +242,19 @@ class ApplicationGUI(ttk.Frame):
         ):
             self.click_delete_session()
 
+    def _click_save_session(self):
+        if messagebox.askokcancel(
+            "Save", f"Are you sure you want to overwrite {self.session_combobox.get()}?"
+        ):
+            self.click_save_session()
+            # self.disable_session_edit()
+            self.session_combobox.config(state="readonly")
+
+    def _click_cancel_session(self):
+        self.select_session_combobox(None)
+        self.disable_session_edit()
+        self.session_combobox.config(state="readonly")
+
     def _click_add_credentials(self):
         self.click_add_credentials()
 
@@ -273,6 +299,9 @@ class ApplicationGUI(ttk.Frame):
     def update_session_input(
         self, path: str, s3_bucket: str, s3_prefix: str, aws_iam: str
     ):
+        self.path_entry.config(state=tk.NORMAL)
+        self.bucket_entry.config(state=tk.NORMAL)
+        self.prefix_entry.config(state=tk.NORMAL)
         self.path_entry.delete(first=0, last=tk.END)
         self.bucket_entry.delete(first=0, last=tk.END)
         self.prefix_entry.delete(first=0, last=tk.END)
@@ -282,16 +311,33 @@ class ApplicationGUI(ttk.Frame):
         self.aws_iam_combobox.set(aws_iam)
 
     def disable_session_edit(self):
-        self.path_entry.config(state=tk.DISABLED)
-        self.bucket_entry.config(state=tk.DISABLED)
-        self.prefix_entry.config(state=tk.DISABLED)
+        self.session_save_button.pack_forget()
+        self.session_cancel_button.pack_forget()
+        self.session_edit_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        self.session_delete_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        self.path_entry.config(state="readonly")
+        self.select_button.config(state=tk.DISABLED)
+        self.bucket_entry.config(state="readonly")
+        self.prefix_entry.config(state="readonly")
         self.aws_iam_combobox.config(state=tk.DISABLED)
+        self.aws_iam_edit_button.config(state=tk.DISABLED)
+        self.aws_iam_delete_button.config(state=tk.DISABLED)
+        self.aws_iam_add_button.config(state=tk.DISABLED)
 
     def enable_session_edit(self):
+        self.session_edit_button.pack_forget()
+        self.session_delete_button.pack_forget()
+        self.session_save_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        self.session_cancel_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
         self.path_entry.config(state=tk.NORMAL)
+        self.select_button.config(state=tk.NORMAL)
         self.bucket_entry.config(state=tk.NORMAL)
         self.prefix_entry.config(state=tk.NORMAL)
-        self.aws_iam_combobox.config(state=tk.NORMAL)
+        self.aws_iam_combobox.config(state="readonly")
+        self.aws_iam_edit_button.config(state=tk.NORMAL)
+        self.aws_iam_delete_button.config(state=tk.NORMAL)
+        self.aws_iam_add_button.config(state=tk.NORMAL)
+        self.change_aws_iam_buttons_state()
 
     @abstractmethod
     def load_session_config(self):
@@ -347,6 +393,10 @@ class ApplicationGUI(ttk.Frame):
 
     @abstractmethod
     def click_add_session(self):
+        pass
+
+    @abstractmethod
+    def click_save_session(self):
         pass
 
     @staticmethod

@@ -206,17 +206,31 @@ class Application(ApplicationGUI):
     def click_delete_credentials(self):
         name = self.aws_iam_combobox.get()
         delete_id = self.aws_iam_config.name2id(name)
-        self.aws_iam_config.delete_iam(delete_id)
+        self.aws_iam_config.delete(delete_id)
         self._after_aws_iam_delete()
 
     def click_edit_session(self):
-        pass
+        self.enable_session_edit()
+        self.session_combobox.config(state=tk.DISABLED)
 
     def click_delete_session(self):
         name = self.session_combobox.get()
         delete_id = self.session_config.name2id(name)
-        self.session_config.delete_iam(delete_id)
+        self.session_config.delete(delete_id)
         self._after_session_delete()
+
+    def click_save_session(self):
+        name = self.session_combobox.get()
+        save_id = self.session_config.name2id(name)
+        new_session_data = {
+            "name": name,
+            "path": self.path_entry.get(),
+            "bucket": self.bucket_entry.get(),
+            "prefix": self.prefix_entry.get(),
+            "aws_iam": self.aws_iam_combobox.get(),
+        }
+        self.session_config.update(new_session_data, original_id=save_id)
+        self._after_session_save(save_id)
 
     def _create_boto3_session(self):
         if self.aws_iam_combobox.get() == Application.aws_iam_default:
