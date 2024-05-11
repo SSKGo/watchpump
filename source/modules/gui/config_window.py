@@ -40,18 +40,20 @@ class AWSIAMConfigEditorGUI(tk.Toplevel):
         self.secret_key_entry = tk.Entry(self)
         self.secret_key_entry.pack()
 
+        frame_actions = tk.Frame(self, relief=tk.SUNKEN)
         cancel_button = tk.Button(
-            self,
+            frame_actions,
             text="Cancel",
             command=self.click_cancel,
         )
-        cancel_button.pack()
+        cancel_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
         save_button = tk.Button(
-            self,
-            text="Save Config",
+            frame_actions,
+            text="Save",
             command=self.click_save,
         )
-        save_button.pack()
+        save_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        frame_actions.pack(expand=True, fill=tk.BOTH)
 
     def set_entries(self, config):
         if config:
