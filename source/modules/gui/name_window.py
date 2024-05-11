@@ -31,14 +31,14 @@ class NameEditorGUI(tk.Toplevel):
             self.name_entry.insert(0, config["name"])
 
     def click_save(self):
-        self.save()
-        self.destroy()
+        if self.save():
+            self.destroy()
 
     def click_cancel(self):
         self.destroy()
 
     @abstractmethod
-    def save(self):
+    def save(self) -> bool:
         pass
 
 

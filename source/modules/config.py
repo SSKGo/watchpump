@@ -1,5 +1,6 @@
 import hashlib
 import os
+from typing import List
 
 import yaml
 
@@ -48,6 +49,10 @@ class ConfigSingletone:
     def delete(cls, delete_id) -> str:
         del cls.config[delete_id]
         cls.save_file()
+
+    @classmethod
+    def list_names(cls) -> List[str]:
+        return [value["name"] for value in cls.config.values()]
 
     @staticmethod
     def name2id(name: str) -> str:

@@ -243,11 +243,18 @@ class ApplicationGUI(ttk.Frame):
             self.click_delete_session()
 
     def _click_save_session(self):
-        if messagebox.askokcancel(
-            "Save", f"Are you sure you want to overwrite {self.session_combobox.get()}?"
-        ):
+        ok_save = False
+        if self.session_combobox.get() == ApplicationGUI.session_new:
+            ok_save = True
+        else:
+            if messagebox.askokcancel(
+                "Save",
+                f"Are you sure you want to overwrite {self.session_combobox.get()}?",
+            ):
+                ok_save = True
+        if ok_save:
             self.click_save_session()
-            # self.disable_session_edit()
+            self.disable_session_edit()
             self.session_combobox.config(state="readonly")
 
     def _click_cancel_session(self):

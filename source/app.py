@@ -78,6 +78,8 @@ class Application(ApplicationGUI):
             master=self.master,
             new_session_data=new_session_data,
             after_save=self._after_session_save,
+            taboo_names=[Application.session_new],
+            existing_names=self.session_config.list_names(),
         )
         window.transient(self.master)
         window.grab_set()
@@ -220,17 +222,7 @@ class Application(ApplicationGUI):
         self._after_session_delete()
 
     def click_save_session(self):
-        name = self.session_combobox.get()
-        save_id = self.session_config.name2id(name)
-        new_session_data = {
-            "name": name,
-            "path": self.path_entry.get(),
-            "bucket": self.bucket_entry.get(),
-            "prefix": self.prefix_entry.get(),
-            "aws_iam": self.aws_iam_combobox.get(),
-        }
-        self.session_config.update(new_session_data, original_id=save_id)
-        self._after_session_save(save_id)
+        self.save_session()
 
     def _create_boto3_session(self):
         if self.aws_iam_combobox.get() == Application.aws_iam_default:
@@ -284,6 +276,7 @@ class Application(ApplicationGUI):
                 "aws_iam": self.aws_iam_combobox.get(),
             }
             self.session_config.update(data, original_id=session_id)
+            self._after_session_save(session_id)
 
     def _after_aws_iam_save(self, new_id):
         name_saved = self.aws_iam_config.config[new_id]["name"]
@@ -345,17 +338,32 @@ class NameEditor(NameEditorGUI):
         master=None,
         new_session_data=None,
         after_save: Callable[[str], None] = None,
+        taboo_names=[],
+        existing_names=[],
     ):
         # Setting files
         self.session_config = SessionConfig()
         self.new_session_data = new_session_data
         super().__init__(master=master, config=new_session_data)
         self.after_save = after_save
+        self.taboo_names = taboo_names
+        self.existing_names = existing_names
 
-    def save(self):
-        self.new_session_data["name"] = self.name_entry.get()
-        new_id = self.session_config.update(self.new_session_data)
-        self.after_save(new_id)
+    def save(self) -> bool:
+        name = self.name_entry.get()
+        if name in self.existing_names:
+            messagebox.showerror("Name Error", "The input name already exists.")
+            return False
+        elif name in self.taboo_names:
+            messagebox.showerror(
+                "Name Error", f"'{name}' is not acceptable name, give another name."
+            )
+            return False
+        else:
+            self.new_session_data["name"] = name
+            new_id = self.session_config.update(self.new_session_data)
+            self.after_save(new_id)
+            return True
 
 
 if __name__ == "__main__":
