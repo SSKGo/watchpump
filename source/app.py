@@ -188,6 +188,8 @@ class Application(ApplicationGUI):
             master=self.master,
             original_id=original_id,
             after_save=self._after_aws_iam_save,
+            taboo_names=[Application.aws_iam_default],
+            existing_names=self.aws_iam_config.list_names(),
         )
         config_window.transient(self.master)
         config_window.grab_set()
@@ -199,6 +201,8 @@ class Application(ApplicationGUI):
             master=self.master,
             original_id=None,
             after_save=self._after_aws_iam_save,
+            taboo_names=[Application.aws_iam_default],
+            existing_names=self.aws_iam_config.list_names(),
         )
         config_window.transient(self.master)
         config_window.grab_set()
@@ -306,7 +310,12 @@ class Application(ApplicationGUI):
 
 class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
     def __init__(
-        self, master=None, original_id=None, after_save: Callable[[str], None] = None
+        self,
+        master=None,
+        original_id=None,
+        after_save: Callable[[str], None] = None,
+        taboo_names=[],
+        existing_names=[],
     ):
         # Setting files
         self.aws_iam_config = AWSIAMConfig()
@@ -317,19 +326,32 @@ class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
             config = None
         super().__init__(master=master, config=config)
         self.after_save = after_save
+        self.taboo_names = taboo_names
+        self.existing_names = existing_names
 
-    def save_credentials(self):
-        new_aws_iam_settings = {
-            "name": self.setting_name_entry.get(),
-            "use_profile": self.use_profile,
-            "aws_profile": self.profile_entry.get(),
-            "aws_access_key": self.access_key_entry.get(),
-            "aws_secret_key": self.secret_key_entry.get(),
-        }
-        new_id = self.aws_iam_config.update(
-            new_aws_iam_settings, original_id=self.original_id
-        )
-        self.after_save(new_id)
+    def save(self) -> bool:
+        name = self.setting_name_entry.get()
+        if name in self.existing_names:
+            messagebox.showerror("Name Error", "The input name already exists.")
+            return False
+        elif name in self.taboo_names:
+            messagebox.showerror(
+                "Name Error", f"'{name}' is not acceptable name, give another name."
+            )
+            return False
+        else:
+            new_aws_iam_settings = {
+                "name": name,
+                "use_profile": self.use_profile,
+                "aws_profile": self.profile_entry.get(),
+                "aws_access_key": self.access_key_entry.get(),
+                "aws_secret_key": self.secret_key_entry.get(),
+            }
+            new_id = self.aws_iam_config.update(
+                new_aws_iam_settings, original_id=self.original_id
+            )
+            self.after_save(new_id)
+            return True
 
 
 class NameEditor(NameEditorGUI):

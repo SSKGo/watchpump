@@ -1,5 +1,5 @@
 import tkinter as tk
-from abc import abstractclassmethod
+from abc import abstractmethod
 
 
 class AWSIAMConfigEditorGUI(tk.Toplevel):
@@ -40,6 +40,12 @@ class AWSIAMConfigEditorGUI(tk.Toplevel):
         self.secret_key_entry = tk.Entry(self)
         self.secret_key_entry.pack()
 
+        cancel_button = tk.Button(
+            self,
+            text="Cancel",
+            command=self.click_cancel,
+        )
+        cancel_button.pack()
         save_button = tk.Button(
             self,
             text="Save Config",
@@ -56,11 +62,14 @@ class AWSIAMConfigEditorGUI(tk.Toplevel):
             self.profile_entry.insert(0, config["aws_profile"])
 
     def click_save(self):
-        self.save_credentials()
+        if self.save():
+            self.destroy()
+
+    def click_cancel(self):
         self.destroy()
 
-    @abstractclassmethod
-    def save_credentials(self):
+    @abstractmethod
+    def save(self) -> bool:
         pass
 
     def toggle_entry_state(self):
