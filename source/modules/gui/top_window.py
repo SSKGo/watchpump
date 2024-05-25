@@ -254,8 +254,6 @@ class ApplicationGUI(ttk.Frame):
                 ok_save = True
         if ok_save:
             self.click_save_session()
-            self.disable_session_edit()
-            self.session_combobox.config(state="readonly")
 
     def _click_cancel_session(self):
         self.select_session_combobox(None)
@@ -335,7 +333,8 @@ class ApplicationGUI(ttk.Frame):
         self.session_edit_button.pack_forget()
         self.session_delete_button.pack_forget()
         self.session_save_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
-        self.session_cancel_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
+        if self.session_combobox.get() != ApplicationGUI.session_new:
+            self.session_cancel_button.pack(padx=5, pady=5, anchor=tk.W, side=tk.LEFT)
         self.path_entry.config(state=tk.NORMAL)
         self.select_button.config(state=tk.NORMAL)
         self.bucket_entry.config(state=tk.NORMAL)

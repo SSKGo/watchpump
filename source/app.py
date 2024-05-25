@@ -245,6 +245,7 @@ class Application(ApplicationGUI):
         self._update_session_combobox_values()
         self.initialize_session_input()
         self.bottom_status_label.config(text="Stop Monitoring.")
+        self.change_session_buttons_state()
 
     def _update_session_combobox_values(self):
         combobox_value_list = [Application.session_new]
@@ -301,11 +302,11 @@ class Application(ApplicationGUI):
         )
         self._update_session_combobox_values()
         self.change_session_buttons_state()
+        self.session_combobox.config(state="readonly")
 
     def _after_session_delete(self):
         self.session_combobox.set(Application.session_new)
-        self._update_session_combobox_values()
-        self.change_session_buttons_state()
+        self._initialize_gui()
 
 
 class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
