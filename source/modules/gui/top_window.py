@@ -10,9 +10,9 @@ class ApplicationGUI(ttk.Frame):
 
     def __init__(self, master=None):
         super().__init__(master)
-        self.master.geometry("500x400")
-        self.master.title("Watchdog for S3 Upload")
-        self.master.resizable(width=False, height=False)
+        self.master.geometry("600x400")
+        self.master.title("Watch Pump (Auto S3 Uploader)")
+        master.resizable(width=False, height=False)
 
         self.session_edit_mode = False
 
@@ -83,7 +83,7 @@ class ApplicationGUI(ttk.Frame):
 
     def _construct_right_frame(self):
         frame_right = tk.Frame(
-            self.master, padx=5, pady=5, relief=tk.SUNKEN, bd=2, width=120
+            self.master, padx=5, pady=5, relief=tk.SUNKEN, bd=2, width=160
         )
         frame_right.propagate(False)
         frame_status = ttk.LabelFrame(frame_right, text="Status", width=280)
@@ -93,7 +93,7 @@ class ApplicationGUI(ttk.Frame):
             foreground="red",
         )
         self.status_label.pack(padx=5, pady=5)
-        frame_status.pack(padx=5, pady=5, anchor=tk.W)
+        frame_status.pack(padx=5, pady=5, fill=tk.BOTH, anchor=tk.W)
 
         self.start_button = ttk.Button(
             frame_right,
