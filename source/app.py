@@ -321,18 +321,24 @@ class AWSIAMConfigEditor(AWSIAMConfigEditorGUI):
         # Setting files
         self.aws_iam_config = AWSIAMConfig()
         self.original_id = original_id if original_id else None
+        self.existing_names = existing_names
         if self.original_id:
             config = self.aws_iam_config.config[self.original_id]
+            self.existing_names = [
+                name for name in self.existing_names if name != config["name"]
+            ]
         else:
             config = None
         super().__init__(master=master, config=config)
         self.after_save = after_save
         self.taboo_names = taboo_names
-        self.existing_names = existing_names
 
     def save(self) -> bool:
-        name = self.setting_name_entry.get()
-        if name in self.existing_names:
+        name = self.setting_name_entry.get().strip()
+        if name == "":
+            messagebox.showerror("Name Error", "Blank name is not acceptable.")
+            return False
+        elif name in self.existing_names:
             messagebox.showerror("Name Error", "The input name already exists.")
             return False
         elif name in self.taboo_names:
@@ -373,8 +379,11 @@ class NameEditor(NameEditorGUI):
         self.existing_names = existing_names
 
     def save(self) -> bool:
-        name = self.name_entry.get()
-        if name in self.existing_names:
+        name = self.name_entry.get().strip()
+        if name == "":
+            messagebox.showerror("Name Error", "Blank name is not acceptable.")
+            return False
+        elif name in self.existing_names:
             messagebox.showerror("Name Error", "The input name already exists.")
             return False
         elif name in self.taboo_names:
